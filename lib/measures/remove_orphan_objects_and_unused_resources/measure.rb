@@ -47,9 +47,9 @@ A second functionality is to remove unused resources. This will include things l
     remove_unused_schedules.setDefaultValue(false)
     args << remove_unused_schedules
 
-    # bool to remove unused curves
+    # bool to remove unused curves and table variables
     remove_unused_curves = OpenStudio::Measure::OSArgument.makeBoolArgument('remove_unused_curves', true)
-    remove_unused_curves.setDisplayName('Remove Unused Curves')
+    remove_unused_curves.setDisplayName('Remove Unused Curves and Table Variables')
     remove_unused_curves.setDefaultValue(false)
     args << remove_unused_curves
 
@@ -261,6 +261,28 @@ A second functionality is to remove unused resources. This will include things l
         end
       end
       runner.registerInfo("Removed #{unused_flag_counter} unused curves")
+
+      # remove orphaned OS:Table:IndependentVariable objects
+      # first, identify which TableIndependentVariables are actually being used
+      used_table_vars = []
+      
+      # check all TableLookup objects to see which IndependentVariables they reference
+      model.getTableLookups.sort.each do |table_lookup|
+        # get all independent variable lists from the table lookup
+        table_lookup.independentVariables.each do |independent_var|
+          used_table_vars << independent_var.handle.to_s
+        end
+      end
+      
+      # now remove any TableIndependentVariable that isn't referenced
+      unused_table_var_counter = 0
+      model.getTableIndependentVariables.sort.each do |table_var|
+        unless used_table_vars.include?(table_var.handle.to_s)
+          unused_table_var_counter += 1
+          table_var.remove
+        end
+      end
+      runner.registerInfo("Removed #{unused_table_var_counter} orphaned table independent variables")
     end
 
     # remove unused default schedule sets
